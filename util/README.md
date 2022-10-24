@@ -1,0 +1,1 @@
+This simple script helps extract from a netlist the inputs to the analog multiplexers related to board pins and create a series of assignments for their use with the tester gateware

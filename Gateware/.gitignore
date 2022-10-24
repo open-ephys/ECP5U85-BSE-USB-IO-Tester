@@ -1,0 +1,24 @@
+*.*
+!.gitignore
+!*.md
+!*.v
+!*.vh
+!*.vhd
+!*.sv
+!*.lpf
+!*.sdc
+!.init
+
+!*.ldf
+!*.sty
+!*.init
+
+#IP files
+!*.edn
+!*.fdc
+!*.lpc
+!*.sbx
+!*.srp
+!*.tcl
+
+**/impl*/**
