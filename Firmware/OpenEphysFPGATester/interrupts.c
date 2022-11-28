@@ -31,6 +31,15 @@ extern AppRegs app_regs;
 /************************************************************************/
 ISR(PORTD_INT0_vect, ISR_NAKED)
 {
+	if (!read_BUTTON)
+	{
+		set_LED_D2;
+	}
+	else
+	{
+		clr_LED_D2;
+	}
+	
 	reti();
 }
 

@@ -111,9 +111,34 @@ void core_callback_device_to_speed(void) {}
 /************************************************************************/
 /* Callbacks: 1 ms timer                                                */
 /************************************************************************/
+bool test_to_begin = false;
+bool testing = false;
+
 void core_callback_t_before_exec(void) {}
 void core_callback_t_after_exec(void) {}
-void core_callback_t_new_second(void) {}
+void core_callback_t_new_second(void)
+{
+	if (!testing)
+	{
+		if (!read_BUTTON)
+		{
+			if (!test_to_begin)
+			{
+				test_to_begin = true;
+			}
+			else
+			{
+				set_LED_D3;
+				testing = true;
+			}
+		}
+		else
+		{
+			test_to_begin = false;
+			testing = false;
+		}
+	}
+}
 void core_callback_t_500us(void) {}
 void core_callback_t_1ms(void) {}
 
