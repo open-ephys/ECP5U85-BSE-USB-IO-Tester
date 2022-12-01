@@ -36,7 +36,7 @@ void init_ios(void)
 	clr_ADD1;
 	clr_ADD2;
 	clr_ADD3;
-	clr_TEST_CLK;
+	set_TEST_CLK;
 }
 
 /************************************************************************/

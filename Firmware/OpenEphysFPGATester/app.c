@@ -6,6 +6,10 @@
 #include "app_funcs.h"
 #include "app_ios_and_regs.h"
 
+#define F_CPU 32000000
+#include "util/delay.h"
+
+
 /************************************************************************/
 /* Declare application registers                                        */
 /************************************************************************/
@@ -58,6 +62,106 @@ void core_callback_catastrophic_error_detected(void)
 /************************************************************************/
 /* Add your functions here or load external functions if needed */
 
+#define write_address(add) PORTC_OUT = (PORTC_IN & 0x0F) | (add << 4)
+
+float test_0_to_7[8];
+#define LOGIC_HIGH_TH_V 1.5
+
+uint8_t test_start_counter;
+
+void read_analog_test_0_to_7 (void)
+{
+	test_0_to_7[0] = adc_A_read_channel(1) * 3.3/4096;
+	test_0_to_7[1] = adc_A_read_channel(2) * 3.3/4096;
+	test_0_to_7[2] = adc_A_read_channel(3) * 3.3/4096;
+	test_0_to_7[3] = adc_A_read_channel(4) * 3.3/4096;
+	test_0_to_7[4] = adc_A_read_channel(5) * 3.3/4096;
+	test_0_to_7[5] = adc_A_read_channel(6) * 3.3/4096;
+	test_0_to_7[6] = adc_A_read_channel(7) * 3.3/4096;
+	test_0_to_7[7] = adc_A_read_channel(9) * 3.3/4096;
+}
+
+void read_analog_test_power (void)
+{
+	write_address(6);	_delay_us(10); app_regs.REG_J1_2V5_7 = adc_A_read_channel(10) * 3.3/4096;
+	
+	write_address(2); _delay_us(10); app_regs.REG_J1_3V3_9 = adc_A_read_channel(10) * 3.3/4096;
+	write_address(1); _delay_us(10); app_regs.REG_J1_3V3_11 = adc_A_read_channel(10) * 3.3/4096;
+	write_address(0); _delay_us(10); app_regs.REG_J1_3V3_13 = adc_A_read_channel(10) * 3.3/4096;
+	
+	write_address(3); _delay_us(10); app_regs.REG_J1_5V_1 = adc_A_read_channel(10) * 3.3/4096 * 2;
+	write_address(4); _delay_us(10); app_regs.REG_J1_5V_3 = adc_A_read_channel(10) * 3.3/4096 * 2;
+	write_address(5); _delay_us(10); app_regs.REG_J1_5V_5 = adc_A_read_channel(10) * 3.3/4096 * 2;
+	
+	write_address(8); _delay_us(10); app_regs.REG_J1_RAMVDD_4 = adc_A_read_channel(10) * 3.3/4096;
+	write_address(9); _delay_us(10); app_regs.REG_J1_RAMVDD_6 = adc_A_read_channel(10) * 3.3/4096;
+
+	write_address(10); _delay_us(10); app_regs.REG_J2_3V3_2 = adc_A_read_channel(10) * 3.3/4096;
+	write_address(12); _delay_us(10); app_regs.REG_J2_3V3_4 = adc_A_read_channel(10) * 3.3/4096;
+	write_address(13); _delay_us(10); app_regs.REG_J2_3V3_6 = adc_A_read_channel(10) * 3.3/4096;
+	
+	core_func_send_event(ADD_REG_J1_2V5_7, true);
+	
+	core_func_send_event(ADD_REG_J1_3V3_9, true);
+	core_func_send_event(ADD_REG_J1_3V3_11, true);
+	core_func_send_event(ADD_REG_J1_3V3_13, true);
+	
+	core_func_send_event(ADD_REG_J1_5V_1, true);
+	core_func_send_event(ADD_REG_J1_5V_3, true);
+	core_func_send_event(ADD_REG_J1_5V_5, true);
+	
+	core_func_send_event(ADD_REG_J1_RAMVDD_4, true);
+	core_func_send_event(ADD_REG_J1_RAMVDD_6, true);
+	
+	core_func_send_event(ADD_REG_J2_3V3_2, true);
+	core_func_send_event(ADD_REG_J2_3V3_4, true);
+	core_func_send_event(ADD_REG_J2_3V3_6, true);
+}
+
+uint8_t increase_for_exceptions (uint8_t address_n, uint8_t test_n)
+{
+	if ((test_n == 1) && (address_n == 7)) return 1;
+	
+	if ((test_n == 3) && (address_n == 0)) return 1;
+	if ((test_n == 3) && (address_n == 1)) return 1;
+	if ((test_n == 3) && (address_n == 11)) return 1;
+	
+	if ((test_n == 5) && (address_n == 14)) return 1;
+	if ((test_n == 5) && (address_n == 15)) return 1;
+	
+	if ((test_n == 6) && (address_n == 0)) return 1;
+	if ((test_n == 6) && (address_n == 1)) return 1;
+	if ((test_n == 6) && (address_n == 7)) return 1;
+	
+	return 0;
+}
+
+uint8_t count_number_of_high_pins (void)
+{
+	uint8_t count_highs = 0;
+	
+	/* Go through all addresses and read all test lines */
+	for (uint8_t add_sweep = 0; add_sweep < 16; add_sweep++)
+	{
+		write_address(add_sweep);
+		_delay_us(10);
+		
+		/* Read analog value from all the 8 test lines */
+		read_analog_test_0_to_7();
+		
+		/* Apply a threshold to each test line and count the amount of 1s */
+		for (uint8_t i = 0; i<8; i++)
+		{
+			if (test_0_to_7[i] > LOGIC_HIGH_TH_V)
+			{
+				count_highs++;
+			}
+		}
+	}
+	
+	return count_highs;
+}
+
 /************************************************************************/
 /* Initialization Callbacks                                             */
 /************************************************************************/
@@ -69,8 +173,8 @@ void core_callback_initialize_hardware(void)
 	/* Don't delete this function!!! */
 	init_ios();
 	
-	/* Initialize hardware */
-	
+	/* Initialize ADCA with single ended input */
+	adc_A_initialize_single_ended(ADC_REFSEL_AREFA_gc);	
 }
 
 void core_callback_reset_registers(void)
@@ -111,34 +215,94 @@ void core_callback_device_to_speed(void) {}
 /************************************************************************/
 /* Callbacks: 1 ms timer                                                */
 /************************************************************************/
-bool test_to_begin = false;
-bool testing = false;
-
 void core_callback_t_before_exec(void) {}
 void core_callback_t_after_exec(void) {}
 void core_callback_t_new_second(void)
 {
-	if (!testing)
+	/* FPGA LED status:
+	   0-> Lit
+      1-> Blinking
+      2-> Lit when the reset condition is met, unlit when you start cycling
+      3-> Blink at the TestClk speed (in this case, fast, but could be useful to debug if you slow it)
+	*/
+	
+	if (!read_BUTTON)	
 	{
-		if (!read_BUTTON)
+		test_start_counter++;
+		
+		/* Start reset time = 3 seconds */
+		clr_TEST_CLK;
+		
+		/* Change device to active mode */
+		uint8_t common_reg = GM_OP_MODE_ACTIVE;
+		hwbp_write_common_reg(ADD_R_OPERATION_CTRL, TYPE_U8, &common_reg, 1);		
+		
+		/* Check if 3 seconds elapsed (we are giving 4 seconds to make sure) */		
+		if (test_start_counter == 5)
 		{
-			if (!test_to_begin)
+			/* Indicate to user that test started */
+			set_LED_D3;
+			
+			/* Indicate to Bonsai that test started */
+			app_regs.REG_TEST_STARTED = true;
+			core_func_send_event(ADD_REG_TEST_STARTED, true);
+			
+			/* Read all the analog power rails and send reading to Bonsai */
+			read_analog_test_power();
+			
+			/* Go through all the pins */
+			for (uint8_t test = 0; test < 8; test++)
 			{
-				test_to_begin = true;
+				for (uint8_t address = 0; address < 16; address++)
+				{
+					/* For each pin, fall clock before testing */
+					clr_TEST_CLK;
+					_delay_us(10);
+					
+					/* Check how many pins are at logic high */
+					uint8_t count = count_number_of_high_pins();
+					
+					/* Add an extra high count when the tested test line is connected to GND */
+					count += increase_for_exceptions(address, test);
+					
+					/* For each pin, rise clock after testing */
+					set_TEST_CLK;
+					_delay_us(10);
+					
+					/* Notify Bonsai when there's no signal or more that one logic high value (i.e, a shunt) */
+					if (count != 1)
+					{
+						app_regs.REG_FAIL_EVENT[0] = address;
+						app_regs.REG_FAIL_EVENT[1] = test;
+						app_regs.REG_FAIL_EVENT[3] = count;
+						core_func_send_event(ADD_REG_FAIL_EVENT, true);
+					}
+				}
 			}
-			else
+			
+			/* Clear both LEDs */
+			clr_LED_D2;
+			clr_LED_D3;
+			
+			/* Indicate to user that the test is done */
+			for (uint8_t i = 0; i < 20; i++)
 			{
-				set_LED_D3;
-				testing = true;
+				_delay_ms(100);
+				tgl_LED_D2;
+				tgl_LED_D3;
 			}
-		}
-		else
-		{
-			test_to_begin = false;
-			testing = false;
+			
+			/* Reset device */
+			wdt_reset_device();
 		}
 	}
+	else
+	{
+		/* Restart counter */
+		test_start_counter = 0;
+	}
 }
+
 void core_callback_t_500us(void) {}
 void core_callback_t_1ms(void) {}
 
